@@ -1,0 +1,11 @@
+# temp files
+*.swp
+
+# object files
+*.o
+*.oc
+*.os
+
+# binary output
+server
+client
