@@ -45,7 +45,7 @@ static long long timestamp()
 {
     struct timeval te; 
     gettimeofday(&te, NULL);
-    long long ms = te.tv_sec * 1000LL + te.tv_usec / 1000;
+    long long ms = te.tv_sec * 1000LL + te.tv_usec / 1000LL;
     return ms;
 }
 
@@ -126,7 +126,7 @@ int main(int argc, char* argv[])
   struct input_event mouse_event;
 
   int end = time(NULL) + 60;
-  int next_update = timestamp() + 100;
+  long long next_update = timestamp() + 100LL;
   while ( time(NULL) < end ) {
     if ( read(keyboard_fd, &keyboard_event, sizeof(keyboard_event)) != -1 ) {
       //printf("keyboard event: type %d code %d value %d  \n", keyboard_event.type, keyboard_event.code, keyboard_event.value);
@@ -155,7 +155,7 @@ int main(int argc, char* argv[])
     }
     if ((next_update <= timestamp()) && abs_changed) {
       abs_changed = 0;
-      next_update = timestamp() + 100;
+      next_update = timestamp() + 100LL;
       for (int code = 0; code < 256; code++) {
         if (abs_values_changed[code]) {
           abs_values_changed[code] = 0;
