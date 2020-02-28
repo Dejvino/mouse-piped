@@ -1,3 +1,3 @@
 #!/bin/bash
 
-scp client.c 10.0.0.2:~/mouse-piped/
+scp *.c *.h Makefile *.sh 10.0.0.2:~/mouse-piped/

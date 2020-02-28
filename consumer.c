@@ -51,8 +51,8 @@ void create_device()
   uidev.id.product = 0x01;
   uidev.id.version = 1;
   /* TODO: real values */
-  uidev.absmax[ABS_X]=1024*4;
-  uidev.absmax[ABS_Y]=1024*4;
+  uidev.absmax[ABS_X]=1000;
+  uidev.absmax[ABS_Y]=1000;
   uidev.absmax[ABS_PRESSURE]=100;
 
   TRY(write(fd, &uidev, sizeof(uidev)) < 0, "write device config");

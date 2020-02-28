@@ -9,6 +9,10 @@
 #include <string.h>
 #include "common.h"
 
+static int time_limit = 30; /* set 0 for endless mode */
+static long long aggregation_step = 100LL; /* how often to send aggregated updates (in ms) */
+static int input_count = 0;
+
 static long long timestamp()
 {
     struct timeval te; 
@@ -47,7 +51,7 @@ static void on_key_event(int code, int value)
 	key_pressed[code] = value;
 }
 
-static void on_mouse_abs_event(int code, int value)
+static void on_abs_event(int code, int value)
 {
 	abs_changed = 1;
   abs_values[code] = value;
@@ -75,77 +79,76 @@ int main(int argc, char* argv[])
 { 
   opterr = 0;
   int c;
-  while ((c = getopt (argc, argv, "vh")) != -1) {
+  while ((c = getopt (argc, argv, "veh")) != -1) {
     switch (c)
       {
       case 'v':
         debug = 1;
         break;
+      case 'e':
+        time_limit = 0;
+        break;
       case 'h':
       default:
-        printf("usage: producer [OPTIONS] input_dev\n");
+        printf("usage: producer [OPTIONS] input_dev [input_dev ...]\n");
         printf("\t-v ... verbose output.\n");
+        printf("\t-e ... endless mode. For production usage.\n");
         printf("\tinput_dev ... input device file path.\n");
         return 0;
       }
   }
-  if (optind + 1 != argc) {
-    die("expecting exactly one input_dev. Run with -h for details.");
+  if (optind == argc) {
+    die("expecting at least one input_dev parameter. Run with -h for details.");
   }
-  char* input_file = argv[argc-1];
-
-  memset(key_pressed, 0, sizeof(key_pressed));
-
-  // TODO: read event files from argv
-  char* keyboard_file = "/dev/input/event1";
-  char* mouse_file = "/dev/input/event4";
+  input_count = argc - optind;
+  char** input_files = &argv[optind];
+  int input_fds[input_count];
 
   printf("Press LMETA + X to release grab.\n");
 
+  /* wait for keys / buttons to be released before starting.
+   * TODO: ignore releasing of buttons we don't know are pressed.
+   */
   sleep(1);
-  int rcode = 0;
 
-  char keyboard_name[256] = "Unknown";
-  int keyboard_fd = open(keyboard_file, O_RDONLY | O_NONBLOCK);
-  TRY(keyboard_fd, "Failed to open keyboard.");
+  for (int i = 0; i < input_count; i++) {
+    char* input_file = input_files[i];
+    int rcode = 0;
 
-  rcode = ioctl(keyboard_fd, EVIOCGNAME(sizeof(keyboard_name)), keyboard_name);
-  VERBOSE("Reading From : %s \n", keyboard_name);
+    VERBOSE("Opening input device %s.\n", input_file);
+    int input_fd = open(input_file, O_RDONLY | O_NONBLOCK);
+    TRY(input_fd, "Failed to open input file.");
+    input_fds[i] = input_fd;
 
-  VERBOSE("Getting exclusive access: ");
-  rcode = ioctl(keyboard_fd, EVIOCGRAB, 1);
-  VERBOSE("%s\n", (rcode == 0) ? "SUCCESS" : "FAILURE");
-  struct input_event keyboard_event;
+    VERBOSE("Getting input device name.\n");
+    char input_name[256] = "Unknown";
+    TRY(rcode = ioctl(input_fd, EVIOCGNAME(sizeof(input_name)), input_name),
+      "ioctl: EVIOCGNAME")
+    printf("Reading From: %s \n", input_name);
+
+    VERBOSE("Getting exclusive access.\n");
+    TRY(rcode = ioctl(input_fd, EVIOCGRAB, 1), "ioctl: EVIOCGRAB");
+  }
+
+  memset(key_pressed, 0, sizeof(key_pressed));
+  struct input_event input_event;
   
-  char mouse_name[256] = "Unknown";
-  int mouse_fd = open(mouse_file, O_RDONLY | O_NONBLOCK);
-  TRY(mouse_fd, "Failed to open mouse.\n");
-  rcode = ioctl(mouse_fd, EVIOCGNAME(sizeof(mouse_name)), mouse_name);
-  VERBOSE("Reading From : %s \n", mouse_name);
-
-  VERBOSE("Getting exclusive access: ");
-  rcode = ioctl(mouse_fd, EVIOCGRAB, 1);
-  VERBOSE("%s\n", (rcode == 0) ? "SUCCESS" : "FAILURE");
-  struct input_event mouse_event;
-
-  int end = time(NULL) + 60;
+  if (time_limit > 0) printf("Time limit set to %d seconds.\n", time_limit);
+  VERBOSE("Producing events...\n");
+  int end = time(NULL) + time_limit;
   long long next_update = timestamp() + 100LL;
-  while (time(NULL) < end) {
-    if (read(keyboard_fd, &keyboard_event, sizeof(keyboard_event)) != -1) {
-      if (keyboard_event.type == EV_KEY) {
-	      on_key_event(keyboard_event.code, keyboard_event.value);
-      }
-      emit_event_struct(keyboard_event);
-    }
-    
-    int sz;
-    if (sz = read(mouse_fd, &mouse_event, sizeof(mouse_event))) {
-      if(sz != -1) {
-        // aggregate ABS mouse events to decrease traffic
-        if (mouse_event.type == EV_ABS) {
-          on_mouse_abs_event(mouse_event.code, mouse_event.value);
+  while (time_limit == 0 || time(NULL) < end) {
+    for (int i = 0; i < input_count; i++) {
+      int input_fd = input_fds[i];
+      if (read(input_fd, &input_event, sizeof(input_event)) != -1) {
+        if (input_event.type == EV_KEY) {
+          on_key_event(input_event.code, input_event.value);
+        }
+        if (input_event.type == EV_ABS) {
+          // aggregate ABS events to decrease traffic
+          on_abs_event(input_event.code, input_event.value);
         } else {
-          emit_event_struct(mouse_event);
+          emit_event_struct(input_event);
         }
       }
     }
@@ -156,10 +159,10 @@ int main(int argc, char* argv[])
 	    break;
     }
 
-    // send ABS mouse events aggregated
+    // send ABS events aggregated
     if ((next_update <= timestamp()) && abs_changed) {
       abs_changed = 0;
-      next_update = timestamp() + 100LL;
+      next_update = timestamp() + aggregation_step;
       for (int code = 0; code < 256; code++) {
         if (abs_values_changed[code]) {
           abs_values_changed[code] = 0;
@@ -172,9 +175,9 @@ int main(int argc, char* argv[])
   }
 
   VERBOSE("Exiting.\n");
-  rcode = ioctl(keyboard_fd, EVIOCGRAB, 1);
-  close(keyboard_fd);
-  rcode = ioctl(mouse_fd, EVIOCGRAB, 1);
-  close(mouse_fd);
+  for (int i = 0; i < input_count; i++) {
+    ioctl(input_fds[i], EVIOCGRAB, 1);
+    close(input_fds[i]);
+  }
   return 0;
 }
