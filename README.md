@@ -33,6 +33,7 @@ You can pipe this directly into a consumer. To prevent it from messing with your
 ### Note on permissions
 * The *producer* process needs permissions to `/dev/input/event*` devices.
 * The *consumer* process needs permissions to `/dev/uinput` device.
+
 You can either run both as root or add your user to a group `input` and make sure the files belong to this group with read+write access.
 
 ## Pipe over SSH
