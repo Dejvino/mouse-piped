@@ -7,5 +7,6 @@
 *.os
 
 # binary output
-server
-client
+producer
+consumer
+

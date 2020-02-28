@@ -1,26 +1,26 @@
 CC=gcc
 
-CFLAGS_SERVER=-I.
-LIBS_SERVER=
+CFLAGS_PRODUCER=-I.
+LIBS_PRODUCER=
 
-CFLAGS_CLIENT=-I.
-LIBS_CLIENT=-lX11 -lXi
+CFLAGS_CONSUMER=-I.
+LIBS_CONSUMER=
 
-all: server client
+all: producer consumer
 
 %.os: %.c $(DEPS)
-	$(CC) -c -o $@ $< $(CFLAGS_SERVER)
+	$(CC) -c -o $@ $< $(CFLAGS_PRODUCER)
 
 %.oc: %.c $(DEPS)
-	$(CC) -c -o $@ $< $(CFLAGS_CLIENT)
+	$(CC) -c -o $@ $< $(CFLAGS_CONSUMER)
 
-server: server.os
-	$(CC) -o server server.os $(LIBS_SERVER)
+producer: producer.os
+	$(CC) -o producer producer.os $(LIBS_PRODUCER)
 
-client: client.oc
-	$(CC) -o client client.oc $(LIBS_CLIENT)
+consumer: consumer.oc
+	$(CC) -o consumer consumer.oc $(LIBS_CONSUMER)
 
 .PHONY: clean
 
 clean:
-	rm -f server client *.os *.oc
+	rm -f producer consumer *.os *.oc
