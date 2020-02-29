@@ -36,12 +36,15 @@ void create_device()
     TRY(ioctl(fd, UI_SET_EVBIT, EV_ABS) < 0, "ioctl EV_ABS");
     TRY(ioctl(fd, UI_SET_ABSBIT, ABS_X) < 0, "ioctl ABS_X");
     TRY(ioctl(fd, UI_SET_ABSBIT, ABS_Y) < 0, "ioctl ABS_Y");
+    TRY(ioctl(fd, UI_SET_EVBIT, EV_REL) < 0, "ioctl EV_REL");
   } else {
     VERBOSE("Setting up REL pointer device.\n");
     TRY(ioctl(fd, UI_SET_EVBIT, EV_REL) < 0, "ioctl EV_REL");
-    TRY(ioctl(fd, UI_SET_ABSBIT, REL_X) < 0, "ioctl REL_X");
-    TRY(ioctl(fd, UI_SET_ABSBIT, REL_Y) < 0, "ioctl REL_Y");
+    TRY(ioctl(fd, UI_SET_RELBIT, REL_X) < 0, "ioctl REL_X");
+    TRY(ioctl(fd, UI_SET_RELBIT, REL_Y) < 0, "ioctl REL_Y");
   }
+  TRY(ioctl(fd, UI_SET_RELBIT, REL_WHEEL) < 0, "ioctl REL_WHEEL");
+  TRY(ioctl(fd, UI_SET_RELBIT, REL_HWHEEL) < 0, "ioctl REL_HWHEEL");
 
   VERBOSE("Initializing input device.\n");
   memset(&uidev, 0, sizeof(uidev));

@@ -10,7 +10,7 @@
 #include "common.h"
 
 static int time_limit = 30; /* set 0 for endless mode */
-static long long aggregation_step = 100LL; /* how often to send aggregated updates (in ms) */
+static long long aggregation_step = 30LL; /* how often to send aggregated updates (in ms) */
 static int input_count = 0;
 
 static long long timestamp()
